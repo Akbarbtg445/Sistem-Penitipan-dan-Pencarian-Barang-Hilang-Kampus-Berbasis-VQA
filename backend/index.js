@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import pygame
 import random
 
@@ -301,3 +302,10 @@ def main():
 if __name__ == "__main__":
     main()
     pygame.quit()
+=======
+// Di bagian import (atas)
+const klaimRoutes = require('./routes/klaimRoutes');
+
+// Di bagian pendaftaran rute (tengah)
+app.use('/api/klaim', klaimRoutes);
+>>>>>>> 34de3cf18e82fa95e6555c582a0bfe7ae6a93eb4
