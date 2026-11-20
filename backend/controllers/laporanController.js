@@ -39,6 +39,8 @@ exports.buatLaporan = async (req, res) => {
       type,
       title,
       category,
+      warna,
+      color,
       description,
       place,
       pickupAt,
@@ -52,7 +54,7 @@ exports.buatLaporan = async (req, res) => {
     const isLost = type === 'lost';
     const namaTabel = isLost ? 'laporan_kehilangan' : 'barang_temuan';
     const tanggalStr = date || new Date().toISOString().split('T')[0];
-    const jamStr = time ? `${time}:00` : '00:00:00';
+    const jamStr = time && /^\d{2}:\d{2}/.test(time) ? `${time}:00`.slice(0, 8) : '00:00:00';
     const waktuTimestamp = `${tanggalStr}T${jamStr}`;
 
     // Upload foto ke bucket 'foto_barang' jika user melampirkan foto
@@ -68,6 +70,7 @@ exports.buatLaporan = async (req, res) => {
           nama_barang: title,
           kategori: category || 'Lainnya',
           kategori_barang: (category || 'Lainnya').slice(0, 50),
+          warna_barang: (warna || color || 'Tidak disebutkan').slice(0, 50),
           ciri_khusus: deskripsiLengkap,
           deskripsi_ciri: deskripsiLengkap,
           lokasi_hilang: (place || '-').slice(0, 255),
