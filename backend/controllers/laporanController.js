@@ -78,7 +78,7 @@ exports.buatLaporan = async (req, res) => {
           waktu_hilang: waktuTimestamp,
           foto_referensi: uploadedUrl || 'https://placehold.co/600x400?text=Foto+Referensi',
           email_pelapor: reporterEmail || 'anonim@umy.ac.id',
-          status_laporan: 'DICARI',
+          status_laporan: 'MENCARI',
         }
       : {
           nama_barang: title,
@@ -153,7 +153,7 @@ exports.ambilLaporan = async (req, res) => {
       date: item.tanggal_hilang || '-',
       time: item.tanggal_hilang || 'Baru saja',
       image: item.foto_referensi || '',
-      status: item.status_laporan || 'DICARI',
+      status: item.status_laporan || 'MENCARI',
       tone: 'yellow',
     }));
 
