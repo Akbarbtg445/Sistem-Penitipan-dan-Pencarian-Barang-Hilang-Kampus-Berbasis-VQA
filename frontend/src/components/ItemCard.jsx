@@ -13,8 +13,7 @@ export default function ItemCard({ item }) {
     e.preventDefault();
     try {
       setLoading(true);
-      const baseUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-      const res = await fetch(`${baseUrl}/api/klaim`, {
+      const res = await fetch("/api/klaim/ajukan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -25,16 +24,7 @@ export default function ItemCard({ item }) {
         }),
       });
 
-      const text = await res.text();
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        throw new Error(
-          `Server membalas HTML (Status ${res.status}). Pastikan VITE_API_URL di Vercel sudah mengarah ke URL backend.`
-        );
-      }
-
+      const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Gagal mengajukan klaim");
 
       setClaimed(true);
