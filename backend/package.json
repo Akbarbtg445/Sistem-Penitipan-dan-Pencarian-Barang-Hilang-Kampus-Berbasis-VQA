@@ -16,12 +16,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
-  },
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "vercel-build": "vite build"
   }
 }
-
-
