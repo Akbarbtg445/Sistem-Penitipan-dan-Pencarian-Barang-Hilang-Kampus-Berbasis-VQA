@@ -7,7 +7,7 @@ export function ReportsProvider({ children }) {
 
   const fetchReports = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/laporan");
+      const res = await fetch("/api/laporan");
       const json = await res.json();
       if (json.status === "success" && Array.isArray(json.data)) {
         setReports(json.data);
@@ -22,7 +22,7 @@ export function ReportsProvider({ children }) {
   }, []);
 
   const addReport = async (newReport) => {
-    const res = await fetch("http://localhost:3000/api/laporan", {
+    const res = await fetch("/api/laporan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newReport),

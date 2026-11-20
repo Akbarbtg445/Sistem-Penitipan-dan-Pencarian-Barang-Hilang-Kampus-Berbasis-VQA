@@ -13,7 +13,7 @@ export default function ItemCard({ item }) {
     e.preventDefault();
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:3000/api/klaim", {
+      const res = await fetch("/api/klaim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

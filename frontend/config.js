@@ -1,9 +1,9 @@
 const CONFIG = {
-  // Alamat Backend Node.js Express kamu
-  BACKEND_API_URL: "http://localhost:3000/api",
+  // Alamat Backend Node.js Express (otomatis mengikuti domain aktif)
+  BACKEND_API_URL: "/api",
   
-  // Alamat Microservice Python FastAPI VQA
-  VQA_API_URL: "http://localhost:8000/api/vqa/analyze",
+  // Alamat Microservice Python FastAPI VQA lewat Backend
+  VQA_API_URL: "/api/vqa/analyze",
 
   // Kredensial Publik Supabase (Publishable Key)
   SUPABASE_URL: "https://wjstzbmmmianflmdylmf.supabase.co",
