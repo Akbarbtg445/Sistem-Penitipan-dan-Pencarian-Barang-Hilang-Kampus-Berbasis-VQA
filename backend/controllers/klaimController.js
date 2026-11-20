@@ -28,7 +28,7 @@ exports.ajukanKlaim = async (req, res) => {
         email_pengklaim: email_pengklaim || 'anonim@umy.ac.id',
         nama_pengklaim: nama_pengklaim || 'Mahasiswa UMY',
         bukti_kepemilikan,
-        status_klaim: 'MENUNGGU_VERIFIKASI',
+        status_klaim: 'DIAJUKAN',
       }])
       .select()
       .single();
