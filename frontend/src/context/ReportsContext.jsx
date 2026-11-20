@@ -1,50 +1,49 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { useAuth } from "./AuthContext";
+import { createContext, useContext, useState, useEffect } from "react";
 
-const ReportsContext = createContext(null);
-const keyOf = (email) => `bh_reports_${email}`;
-
-function load(email) {
-  try {
-    return JSON.parse(localStorage.getItem(keyOf(email))) || [];
-  } catch {
-    return [];
-  }
-}
+const ReportsContext = createContext();
 
 export function ReportsProvider({ children }) {
-  const { user } = useAuth();
-  const email = user?.email;
-  const [reports, setReports] = useState(() => (email ? load(email) : []));
+  const [reports, setReports] = useState([]);
 
-  // Ganti daftar laporan setiap kali akun berganti
+  const fetchReports = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/api/laporan");
+      const json = await res.json();
+      if (json.status === "success" && Array.isArray(json.data)) {
+        setReports(json.data);
+      }
+    } catch (err) {
+      console.error("Gagal memuat laporan dari backend:", err);
+    }
+  };
+
   useEffect(() => {
-    setReports(email ? load(email) : []);
-  }, [email]);
+    fetchReports();
+  }, []);
 
-  // TODO: ganti dengan POST /api/laporan, lalu ambil daftar dari GET /api/laporan
-  const addReport = (r) => {
-    if (!email) return;
-    const now = new Date();
-    const item = {
-      id: `HTMU-${now.getFullYear()}-${String(Date.now()).slice(-4)}`,
-      date: now.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      ...r,
-    };
-    const next = [item, ...reports];
-    localStorage.setItem(keyOf(email), JSON.stringify(next));
-    setReports(next);
+  const addReport = async (newReport) => {
+    const res = await fetch("http://localhost:3000/api/laporan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newReport),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Gagal menyimpan laporan ke database");
+    }
+
+    await fetchReports();
+    return json.data;
   };
 
   return (
-    <ReportsContext.Provider value={{ reports, addReport }}>
+    <ReportsContext.Provider value={{ reports, addReport, fetchReports }}>
       {children}
     </ReportsContext.Provider>
   );
 }
 
-export const useReports = () => useContext(ReportsContext);
+export function useReports() {
+  return useContext(ReportsContext);
+}

@@ -33,7 +33,12 @@ export default function ReportLost() {
   const report = {
     type: "lost",
     title: f.nama,
+    category: f.kategori,
+    description: f.ciri,
     place: f.lokasi,
+    date: f.tglHilang,
+    rentang: f.rentang,
+    catatan: f.catatan,
     status: "Pencarian",
     tone: "yellow",
   };

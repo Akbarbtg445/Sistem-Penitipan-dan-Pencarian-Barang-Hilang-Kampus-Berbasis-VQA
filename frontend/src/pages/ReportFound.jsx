@@ -69,7 +69,12 @@ export default function ReportFound() {
   const report = {
     type: "found",
     title: f.nama,
+    category: f.kategori,
+    description: f.deskripsi,
     place: lokasi,
+    pickupAt: f.penyerahan === "satpam" ? f.pos : "Masih dibawa pelapor",
+    date: f.tanggal,
+    time: f.jam,
     status: "Menunggu Verifikasi",
     tone: "yellow",
   };

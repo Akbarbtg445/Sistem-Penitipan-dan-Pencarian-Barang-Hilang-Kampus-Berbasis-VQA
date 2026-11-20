@@ -3,17 +3,23 @@ import { Search } from "lucide-react";
 import ItemCard from "../components/ItemCard";
 import { Steps } from "../components/FormBits";
 import { items } from "../data/items";
-
-const cats = ["Semua", ...new Set(items.map((i) => i.category))];
+import { useReports } from "../context/ReportsContext";
 
 export default function FoundList() {
+  const { reports } = useReports();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("Semua");
 
-  const filtered = items.filter(
+  const foundReports = reports.filter((r) => r.type === "found");
+  const allItems = [...foundReports, ...items];
+  const cats = ["Semua", ...new Set(allItems.map((i) => i.category))];
+
+  const filtered = allItems.filter(
     (i) =>
       (cat === "Semua" || i.category === cat) &&
-      (i.title + i.description + i.foundAt).toLowerCase().includes(q.toLowerCase())
+      `${i.title} ${i.description} ${i.foundAt}`
+        .toLowerCase()
+        .includes(q.toLowerCase())
   );
 
   return (

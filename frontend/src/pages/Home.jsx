@@ -18,7 +18,10 @@ export default function Home() {
   const active = categoryChips.find((c) => c.id === cat);
   const q = query.trim().toLowerCase();
 
-  let filtered = items.filter((i) => {
+  const foundReports = reports.filter((r) => r.type === "found");
+  const allItems = [...foundReports, ...items];
+
+  let filtered = allItems.filter((i) => {
     const okCat = !active.match || active.match.includes(i.category);
     const okQuery =
       !q ||

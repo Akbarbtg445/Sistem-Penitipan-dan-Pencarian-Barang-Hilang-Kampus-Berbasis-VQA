@@ -3,16 +3,41 @@ import { useNavigate } from "react-router-dom";
 import { X, CheckCircle2, Send, Pencil } from "lucide-react";
 import { useReports } from "../context/ReportsContext";
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function PreviewModal({ title, rows, files = [], report, onClose }) {
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { addReport } = useReports();
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
 
-  const send = () => {
-    // TODO: kirim ke backend (fetch POST /api/laporan) sebelum addReport
-    addReport(report);
-    setSent(true);
+  const send = async () => {
+    try {
+      setLoading(true);
+      let imageBase64 = null;
+      if (files.length > 0) {
+        imageBase64 = await fileToBase64(files[0]);
+      }
+
+      await addReport({
+        ...report,
+        imageBase64,
+      });
+      setSent(true);
+    } catch (err) {
+      alert("ERROR DATABASE: " + err.message);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,8 +48,8 @@ export default function PreviewModal({ title, rows, files = [], report, onClose 
             <CheckCircle2 size={54} />
             <h3>Laporan Berhasil Dikirim</h3>
             <p>
-              Terima kasih. Petugas akan memverifikasi laporanmu dan
-              mengabarimu lewat WhatsApp &amp; email SSO.
+              Terima kasih. Data laporan dan foto barangmu sudah tersimpan di
+              database untuk segera diverifikasi petugas.
             </p>
             <button className="btn-primary" onClick={() => navigate("/riwayat")}>
               Lihat Riwayat Laporan
@@ -66,11 +91,11 @@ export default function PreviewModal({ title, rows, files = [], report, onClose 
             </div>
 
             <div className="modal-foot">
-              <button className="btn-cancel" onClick={onClose}>
+              <button className="btn-cancel" onClick={onClose} disabled={loading}>
                 <Pencil size={14} /> Kembali &amp; Ubah
               </button>
-              <button className="btn-save" onClick={send}>
-                <Send size={15} /> Kirim Laporan
+              <button className="btn-save" onClick={send} disabled={loading}>
+                <Send size={15} /> {loading ? "Mengunggah & Menyimpan..." : "Kirim Laporan"}
               </button>
             </div>
           </>
