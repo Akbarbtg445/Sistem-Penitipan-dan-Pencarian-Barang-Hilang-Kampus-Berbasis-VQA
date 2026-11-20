@@ -1,6 +1,8 @@
 const supabase = require('../config/supabase');
 
-const PYTHON_VQA_URL = process.env.PYTHON_VQA_URL || 'http://127.0.0.1:8000';
+const PYTHON_VQA_URL =
+  process.env.PYTHON_VQA_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/api/vqa/py` : 'http://127.0.0.1:8000');
 
 exports.analyzeVqa = async (req, res) => {
   try {

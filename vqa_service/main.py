@@ -13,7 +13,10 @@ from dotenv import load_dotenv
 ENV_PATH = Path(__file__).resolve().parent.parent / "backend" / ".env"
 load_dotenv(dotenv_path=ENV_PATH, override=True)
 
-app = FastAPI(title="Campus Lost & Found VQA Service")
+app = FastAPI(
+    title="Campus Lost & Found VQA Service",
+    root_path="/api/vqa/py" if os.getenv("VERCEL") else ""
+)
 
 app.add_middleware(
     CORSMiddleware,

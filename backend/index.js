@@ -16,7 +16,11 @@ app.use('/api/klaim', klaimRoutes);
 app.use('/api/laporan', laporanRoutes);
 app.use('/api/vqa', vqaRoutes);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server backend berjalan di http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server backend berjalan di http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
