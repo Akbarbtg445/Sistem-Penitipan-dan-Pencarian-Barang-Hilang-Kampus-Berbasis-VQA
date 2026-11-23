@@ -2,6 +2,7 @@ import os
 import io
 import re
 import json
+import time
 import base64
 import requests
 from pathlib import Path
@@ -63,15 +64,15 @@ def compress_to_data_url(data_url: str) -> str:
 
 def get_free_vision_models() -> list[str]:
     preferred = [
+        "openrouter/free",
         "google/gemma-3-27b-it:free",
         "google/gemma-3-12b-it:free",
         "qwen/qwen2.5-vl-72b-instruct:free",
-        "qwen/qwen2.5-vl-32b-instruct:free",
         "meta-llama/llama-3.2-11b-vision-instruct:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
     ]
     try:
-        resp = requests.get(f"{OPENROUTER_BASE_URL}/models", timeout=15)
+        resp = requests.get(f"{OPENROUTER_BASE_URL}/models", timeout=10)
         if resp.status_code == 200:
             dynamic = []
             for m in resp.json().get("data", []):
@@ -79,7 +80,7 @@ def get_free_vision_models() -> list[str]:
                 modalities = (m.get("architecture") or {}).get("input_modalities") or []
                 if mid.endswith(":free") and "image" in modalities and mid not in preferred:
                     dynamic.append(mid)
-            return preferred + dynamic[:6]
+            return (preferred + dynamic)[:8]
     except Exception:
         pass
     return preferred
@@ -107,9 +108,9 @@ def call_vision_llm(messages: list, temperature: float = 0.2) -> str:
                     "model": model_id,
                     "messages": messages,
                     "temperature": temperature,
-                    "max_tokens": 800,
+                    "max_tokens": 1500,
                 },
-                timeout=30,
+                timeout=15,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -121,7 +122,9 @@ def call_vision_llm(messages: list, temperature: float = 0.2) -> str:
                         return content.strip()
                 last_error = f"[{model_id}] HTTP 200 tetapi content kosong/None"
             else:
-                last_error = f"[{model_id}] HTTP {resp.status_code}: {resp.text[:250]}"
+                last_error = f"[{model_id}] HTTP {resp.status_code}: {resp.text[:200]}"
+                if resp.status_code == 429:
+                    time.sleep(0.8)
         except Exception as err:
             last_error = f"[{model_id}] Exception: {err}"
 
@@ -132,10 +135,28 @@ def extract_json_object(raw_text: str) -> dict:
     cleaned = (raw_text or "").strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+
     match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
-    if match:
-        cleaned = match.group(0)
-    return json.loads(cleaned)
+    candidate = match.group(0) if match else cleaned
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        def grab_field(key: str, default: str) -> str:
+            m = re.search(rf'"{key}"\s*:\s*"([^"\n\r]*)', candidate)
+            return m.group(1).strip() if m and m.group(1).strip() else default
+
+        teks_items = []
+        teks_match = re.search(r'"teks"\s*:\s*\[([^\]]*)', candidate, flags=re.DOTALL)
+        if teks_match:
+            teks_items = [t.strip() for t in re.findall(r'"([^"\n\r]+)"', teks_match.group(1)) if t.strip()]
+
+        return {
+            "kategori": grab_field("kategori", "Lainnya"),
+            "warna": grab_field("warna", "Tidak terdeteksi"),
+            "bahan": grab_field("bahan", "Tidak terdeteksi"),
+            "teks": teks_items[:5],
+        }
 
 
 @app.post("/analyze")
@@ -151,10 +172,10 @@ async def analyze_image(req: AnalyzeRequest):
                         {
                             "type": "text",
                             "text": (
-                                "Analisis foto ini untuk sistem Lost & Found kampus. "
-                                "Kembalikan HANYA JSON murni tanpa markdown dengan kunci persis: "
+                                "Analisis foto ini secara singkat untuk sistem Lost & Found kampus. "
+                                "Kembalikan HANYA 1 baris JSON valid tanpa markdown dan tanpa tanda kutip di dalam nilai: "
                                 '{"kategori": "...", "warna": "...", "bahan": "...", "teks": ["..."]}. '
-                                "Isi 'teks' dengan tulisan/merek/stiker yang terlihat di gambar (array string)."
+                                "Isi 'teks' maksimal 5 kata/frasa tulisan utama yang terlihat di gambar."
                             ),
                         },
                         {"type": "image_url", "image_url": {"url": image_url}},
