@@ -4,6 +4,37 @@ import { useAuth } from "../context/AuthContext";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
+function compressImageFile(file, maxDim = 1024, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Gagal membaca file gambar."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Format gambar tidak didukung."));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Hero({ query = "", onQueryChange = () => {} }) {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
@@ -16,7 +47,7 @@ export default function Hero({ query = "", onQueryChange = () => {} }) {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -25,39 +56,43 @@ export default function Hero({ query = "", onQueryChange = () => {} }) {
     setScanError("");
     setVqaResult(null);
 
-    const reader = new FileReader();
-    reader.onload = async () => {
+    try {
+      const compressedBase64 = await compressImageFile(file);
+
+      const res = await fetch(`${API_BASE}/vqa/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: compressedBase64 }),
+      });
+
+      const rawText = await res.text();
+      let json = {};
       try {
-        const res = await fetch(`${API_BASE}/vqa/analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageBase64: reader.result }),
-        });
-
-        const json = await res.json();
-        if (!res.ok || json.status !== "success") {
-          throw new Error(json.message || json.detail || "Gagal menganalisis foto.");
-        }
-
-        const data = json.data || {};
-        setVqaResult(data);
-
-        // Gunakan teks/merek utama jika terdeteksi, atau kategori sebagai kata kunci filter awal
-        const keyword =
-          (Array.isArray(data.teks) && data.teks[0]) ||
-          (data.kategori && data.kategori !== "Lainnya" ? data.kategori : "") ||
-          (data.warna && data.warna !== "Tidak terdeteksi" ? data.warna : "");
-
-        if (keyword) {
-          onQueryChange(keyword);
-        }
-      } catch (err) {
-        setScanError(err.message || "Terjadi kesalahan saat pencarian visual.");
-      } finally {
-        setScanning(false);
+        json = JSON.parse(rawText);
+      } catch {
+        throw new Error(rawText.slice(0, 120) || `HTTP ${res.status}`);
       }
-    };
-    reader.readAsDataURL(file);
+
+      if (!res.ok || json.status !== "success") {
+        throw new Error(json.message || json.detail || "Gagal menganalisis foto.");
+      }
+
+      const data = json.data || {};
+      setVqaResult(data);
+
+      const keyword =
+        (Array.isArray(data.teks) && data.teks[0]) ||
+        (data.kategori && data.kategori !== "Lainnya" ? data.kategori : "") ||
+        (data.warna && data.warna !== "Tidak terdeteksi" ? data.warna : "");
+
+      if (keyword) {
+        onQueryChange(keyword);
+      }
+    } catch (err) {
+      setScanError(err.message || "Terjadi kesalahan saat pencarian visual.");
+    } finally {
+      setScanning(false);
+    }
   };
 
   const clearVisualSearch = () => {
