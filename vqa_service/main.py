@@ -47,23 +47,30 @@ def compress_to_data_url(data_url: str) -> str:
     if not data_url:
         raise ValueError("imageBase64 kosong.")
 
-    if "," in data_url:
-        _, encoded = data_url.split(",", 1)
+    if data_url.startswith("http://") or data_url.startswith("https://"):
+        img_resp = requests.get(data_url, timeout=15)
+        img_resp.raise_for_status()
+        img_bytes = img_resp.content
     else:
-        encoded = data_url
+        if "," in data_url:
+            _, encoded = data_url.split(",", 1)
+        else:
+            encoded = data_url
+        img_bytes = base64.b64decode(encoded)
 
-    img_bytes = base64.b64decode(encoded)
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    img.thumbnail((800, 800))
+    img.thumbnail((1280, 1280))
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=80)
+    img.save(buf, format="JPEG", quality=88)
     b64_small = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/jpeg;base64,{b64_small}"
 
 
 def get_free_vision_models() -> list[str]:
-    preferred = [
+    return [
+        "google/gemini-2.5-flash",
+        "google/gemini-2.0-flash-001",
         "openrouter/free",
         "google/gemma-3-27b-it:free",
         "google/gemma-3-12b-it:free",
@@ -71,19 +78,6 @@ def get_free_vision_models() -> list[str]:
         "meta-llama/llama-3.2-11b-vision-instruct:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
     ]
-    try:
-        resp = requests.get(f"{OPENROUTER_BASE_URL}/models", timeout=10)
-        if resp.status_code == 200:
-            dynamic = []
-            for m in resp.json().get("data", []):
-                mid = m.get("id") or ""
-                modalities = (m.get("architecture") or {}).get("input_modalities") or []
-                if mid.endswith(":free") and "image" in modalities and mid not in preferred:
-                    dynamic.append(mid)
-            return (preferred + dynamic)[:8]
-    except Exception:
-        pass
-    return preferred
 
 
 def call_vision_llm(messages: list, temperature: float = 0.2) -> str:
@@ -110,7 +104,7 @@ def call_vision_llm(messages: list, temperature: float = 0.2) -> str:
                     "temperature": temperature,
                     "max_tokens": 1500,
                 },
-                timeout=15,
+                timeout=20,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -124,7 +118,7 @@ def call_vision_llm(messages: list, temperature: float = 0.2) -> str:
             else:
                 last_error = f"[{model_id}] HTTP {resp.status_code}: {resp.text[:200]}"
                 if resp.status_code == 429:
-                    time.sleep(0.8)
+                    time.sleep(0.5)
         except Exception as err:
             last_error = f"[{model_id}] Exception: {err}"
 
@@ -172,17 +166,19 @@ async def analyze_image(req: AnalyzeRequest):
                         {
                             "type": "text",
                             "text": (
-                                "Analisis foto ini secara singkat untuk sistem Lost & Found kampus. "
-                                "Kembalikan HANYA 1 baris JSON valid tanpa markdown dan tanpa tanda kutip di dalam nilai: "
+                                "Analisis gambar ini secara teliti untuk sistem Lost & Found kampus. "
+                                "Fokus pada objek utama atau elemen paling menonjol meskipun latar belakang ramai/rumit. "
+                                "Kembalikan HANYA 1 baris JSON valid tanpa markdown dan tanpa tanda kutip ganda di dalam isi teks: "
                                 '{"kategori": "...", "warna": "...", "bahan": "...", "teks": ["..."]}. '
-                                "Isi 'teks' maksimal 5 kata/frasa tulisan utama yang terlihat di gambar."
+                                "Aturan: 'kategori' maksimal 3 kata; 'warna' maksimal 3 warna dominan; "
+                                "'bahan' perkiraan material/jenis visual; 'teks' maksimal 5 teks/label paling penting (masing-masing maks 4 kata)."
                             ),
                         },
                         {"type": "image_url", "image_url": {"url": image_url}},
                     ],
                 }
             ],
-            temperature=0.2,
+            temperature=0.1,
         )
 
         parsed = extract_json_object(raw_text)
