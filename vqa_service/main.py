@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import json
 import base64
 import requests
@@ -25,8 +26,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def get_openrouter_key() -> str:
+    return (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
 
 
 class AnalyzeRequest(BaseModel):
@@ -39,6 +43,9 @@ class AskRequest(BaseModel):
 
 
 def compress_to_data_url(data_url: str) -> str:
+    if not data_url:
+        raise ValueError("imageBase64 kosong.")
+
     if "," in data_url:
         _, encoded = data_url.split(",", 1)
     else:
@@ -68,8 +75,8 @@ def get_free_vision_models() -> list[str]:
         if resp.status_code == 200:
             dynamic = []
             for m in resp.json().get("data", []):
-                mid = m.get("id", "")
-                modalities = m.get("architecture", {}).get("input_modalities", [])
+                mid = m.get("id") or ""
+                modalities = (m.get("architecture") or {}).get("input_modalities") or []
                 if mid.endswith(":free") and "image" in modalities and mid not in preferred:
                     dynamic.append(mid)
             return preferred + dynamic[:6]
@@ -79,36 +86,56 @@ def get_free_vision_models() -> list[str]:
 
 
 def call_vision_llm(messages: list, temperature: float = 0.2) -> str:
-    if not OPENROUTER_API_KEY:
-        raise RuntimeError(f"OPENROUTER_API_KEY belum diisi di {ENV_PATH}")
+    api_key = get_openrouter_key()
+    if not api_key:
+        raise RuntimeError(f"OPENROUTER_API_KEY belum diisi di environment atau {ENV_PATH}")
 
     candidates = get_free_vision_models()
     last_error = ""
 
     for model_id in candidates:
-        resp = requests.post(
-            f"{OPENROUTER_BASE_URL}/chat/completions",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "HTTP-Referer": "http://localhost:5173",
-                "X-Title": "UMY Campus Lost and Found VQA",
-            },
-            json={
-                "model": model_id,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": 500,
-            },
-            timeout=30,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            if "choices" in data and data["choices"]:
-                return data["choices"][0]["message"]["content"].strip()
-        last_error = f"[{model_id}] HTTP {resp.status_code}: {resp.text[:250]}"
+        try:
+            resp = requests.post(
+                f"{OPENROUTER_BASE_URL}/chat/completions",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "HTTP-Referer": "https://vqaservice.vercel.app",
+                    "X-Title": "UMY Campus Lost and Found VQA",
+                },
+                json={
+                    "model": model_id,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": 800,
+                },
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices") or []
+                if choices:
+                    msg = choices[0].get("message") or {}
+                    content = msg.get("content")
+                    if isinstance(content, str) and content.strip():
+                        return content.strip()
+                last_error = f"[{model_id}] HTTP 200 tetapi content kosong/None"
+            else:
+                last_error = f"[{model_id}] HTTP {resp.status_code}: {resp.text[:250]}"
+        except Exception as err:
+            last_error = f"[{model_id}] Exception: {err}"
 
     raise RuntimeError(f"Semua kandidat model vision gagal. Terakhir: {last_error}")
+
+
+def extract_json_object(raw_text: str) -> dict:
+    cleaned = (raw_text or "").strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+    match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+    if match:
+        cleaned = match.group(0)
+    return json.loads(cleaned)
 
 
 @app.post("/analyze")
@@ -137,16 +164,16 @@ async def analyze_image(req: AnalyzeRequest):
             temperature=0.2,
         )
 
-        raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        parsed = json.loads(raw_text)
+        parsed = extract_json_object(raw_text)
+        teks_list = parsed.get("teks") if isinstance(parsed.get("teks"), list) else []
 
         return {
             "status": "success",
             "data": {
-                "kategori": parsed.get("kategori", "Lainnya"),
-                "warna": parsed.get("warna", "Tidak terdeteksi"),
-                "bahan": parsed.get("bahan", "Tidak terdeteksi"),
-                "teks": parsed.get("teks", []),
+                "kategori": parsed.get("kategori") or "Lainnya",
+                "warna": parsed.get("warna") or "Tidak terdeteksi",
+                "bahan": parsed.get("bahan") or "Tidak terdeteksi",
+                "teks": teks_list,
             },
         }
     except Exception as e:
