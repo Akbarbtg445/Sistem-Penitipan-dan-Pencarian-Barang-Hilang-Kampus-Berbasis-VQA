@@ -133,6 +133,14 @@ export default function Vqa() {
     return [...matches, ...lostMatches].sort((a, b) => b.score - a.score);
   }, [mode, matches, lostMatches]);
 
+  const handleMatchClick = (m) => {
+    if (m.type === "lost") {
+      navigate(`/riwayat?id=${m.id}`, { state: { selectedItem: m } });
+    } else {
+      navigate(`/daftar-temuan?id=${m.id}`, { state: { selectedItem: m } });
+    }
+  };
+
   return (
     <main className="page">
       <div className="page-head">
@@ -243,7 +251,20 @@ export default function Vqa() {
           </p>
           <div className="grid grid-2">
             {displayedMatches.map((m) => (
-              <article key={`${m.type}-${m.id}`} className="fcard match">
+              <article
+                key={`${m.type}-${m.id}`}
+                className="fcard match"
+                onClick={() => handleMatchClick(m)}
+                style={{ cursor: "pointer", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleMatchClick(m);
+                  }
+                }}
+              >
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                   <span className="rep-status green">Kemiripan {m.score}%</span>
                   <span className={`rep-status ${m.type === "lost" ? "yellow" : "green"}`}>
@@ -265,15 +286,23 @@ export default function Vqa() {
                 </p>
                 {m.type === "lost" ? (
                   <button
+                    type="button"
                     className="btn-outline btn-sm"
-                    onClick={() => navigate("/riwayat")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMatchClick(m);
+                    }}
                   >
                     Lihat di Riwayat Laporan
                   </button>
                 ) : (
                   <button
+                    type="button"
                     className="btn-primary btn-sm"
-                    onClick={() => navigate("/daftar-temuan")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMatchClick(m);
+                    }}
                   >
                     Lihat &amp; Ajukan Klaim
                   </button>
