@@ -1,6 +1,18 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { FileText, Search, CheckCircle2, MapPin } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  FileText,
+  Search,
+  CheckCircle2,
+  MapPin,
+  Calendar,
+  Clock,
+  Tag,
+  Palette,
+  X,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 import { useReports } from "../context/ReportsContext";
 
 const tabs = [
@@ -11,7 +23,9 @@ const tabs = [
 
 export default function History() {
   const { reports } = useReports();
+  const navigate = useNavigate();
   const [tab, setTab] = useState("all");
+  const [selectedReport, setSelectedReport] = useState(null);
 
   const list = reports.filter((r) => tab === "all" || r.type === tab);
   const count = (id) => reports.filter((r) => id === "all" || r.type === id).length;
@@ -58,19 +72,212 @@ export default function History() {
       ) : (
         <div className="hist-list">
           {list.map((r) => (
-            <article key={r.id} className="hist-item">
+            <article
+              key={r.id}
+              className="hist-item"
+              onClick={() => setSelectedReport(r)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setSelectedReport(r);
+              }}
+              style={{ cursor: "pointer", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
+            >
               <div className="hist-top">
                 <span className={`rep-status ${r.tone}`}>{r.status}</span>
                 <span className="muted small">{r.id}</span>
               </div>
-              <h3>{r.title}</h3>
-              <div className="hist-meta">
-                <span><MapPin size={12} /> {r.place}</span>
-                <span>{r.type === "lost" ? "Laporan Kehilangan" : "Laporan Temuan"}</span>
-                <span>{r.date}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+                <div>
+                  <h3>{r.title}</h3>
+                  <div className="hist-meta">
+                    <span><MapPin size={12} /> {r.place}</span>
+                    <span>{r.type === "lost" ? "Laporan Kehilangan" : "Laporan Temuan"}</span>
+                    <span>{r.date}</span>
+                  </div>
+                </div>
+                <span
+                  className="muted small"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", whiteSpace: "nowrap" }}
+                >
+                  Lihat Detail <ChevronRight size={15} />
+                </span>
               </div>
             </article>
           ))}
+        </div>
+      )}
+
+      {selectedReport && (
+        <div
+          onClick={() => setSelectedReport(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "560px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: "1.5rem",
+              boxShadow: "0 20px 45px rgba(0,0,0,0.18)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+              <div>
+                <span className={`rep-status ${selectedReport.tone}`}>{selectedReport.status}</span>
+                <h2 style={{ marginTop: "0.5rem", marginBottom: "0.2rem", fontSize: "1.3rem" }}>
+                  {selectedReport.title}
+                </h2>
+                <p className="muted small" style={{ margin: 0 }}>
+                  ID Laporan: {selectedReport.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReport(null)}
+                aria-label="Tutup detail"
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  borderRadius: "999px",
+                  width: "34px",
+                  height: "34px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {selectedReport.image && (
+              <div style={{ marginTop: "1rem", borderRadius: "12px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                <img
+                  src={selectedReport.image}
+                  alt={selectedReport.title}
+                  style={{ width: "100%", maxHeight: "260px", objectFit: "cover", display: "block" }}
+                />
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "1rem",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: "0.75rem",
+                padding: "0.9rem",
+                backgroundColor: "#f8fafc",
+                borderRadius: "12px",
+                fontSize: "0.9rem",
+              }}
+            >
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Tag size={13} /> Kategori
+                </div>
+                <strong>{selectedReport.category || "-"}</strong>
+              </div>
+
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Palette size={13} /> Warna Barang
+                </div>
+                <strong>{selectedReport.color || "-"}</strong>
+              </div>
+
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <MapPin size={13} /> {selectedReport.type === "lost" ? "Lokasi Terakhir Hilang" : "Lokasi Ditemukan"}
+                </div>
+                <strong>{selectedReport.place || "-"}</strong>
+              </div>
+
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Calendar size={13} /> Tanggal {selectedReport.type === "lost" ? "Hilang" : "Ditemukan"}
+                </div>
+                <strong>{selectedReport.date || "-"}</strong>
+              </div>
+
+              {selectedReport.time && selectedReport.time !== "-" && (
+                <div>
+                  <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <Clock size={13} /> Perkiraan Waktu
+                  </div>
+                  <strong>{selectedReport.time} WIB</strong>
+                </div>
+              )}
+
+              {selectedReport.type !== "lost" && selectedReport.pickupAt && (
+                <div>
+                  <div className="muted small">Pos Penyimpanan</div>
+                  <strong>{selectedReport.pickupAt}</strong>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: "1rem" }}>
+              <div className="muted small" style={{ marginBottom: "0.3rem" }}>
+                Deskripsi & Ciri Khusus Barang
+              </div>
+              <div
+                style={{
+                  padding: "0.85rem",
+                  borderRadius: "10px",
+                  border: "1px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
+                  lineHeight: 1.55,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {selectedReport.description || "Tidak ada deskripsi tambahan."}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: "1.25rem",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.65rem",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setSelectedReport(null)}
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setSelectedReport(null);
+                  navigate("/vqa");
+                }}
+              >
+                <Sparkles size={15} /> Cek Kecocokan di VQA
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>
