@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ScanSearch, Upload, Send, Sparkles, Loader2, ShieldCheck } from "lucide-react";
+import {
+  ScanSearch,
+  Upload,
+  Send,
+  Sparkles,
+  Loader2,
+  ShieldCheck,
+  MapPin,
+  Calendar,
+} from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -36,11 +45,13 @@ function fileToBase64(file, maxSize = 1024, quality = 0.8) {
 
 export default function Vqa() {
   const navigate = useNavigate();
+  const [mode, setMode] = useState("all"); // "all" | "lost_user" | "found_user"
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [asking, setAsking] = useState(false);
   const [result, setResult] = useState(null);
   const [matches, setMatches] = useState([]);
+  const [lostMatches, setLostMatches] = useState([]);
   const [messages, setMessages] = useState([
     { from: "ai", text: "Unggah foto barang, lalu tanyakan apa saja tentang barang itu." },
   ]);
@@ -52,6 +63,7 @@ export default function Vqa() {
     setFile(e.target.files[0] || null);
     setResult(null);
     setMatches([]);
+    setLostMatches([]);
   };
 
   const analyze = async () => {
@@ -71,6 +83,7 @@ export default function Vqa() {
 
       setResult(json.result);
       setMatches(json.matches || []);
+      setLostMatches(json.lostMatches || []);
     } catch (err) {
       alert("Error VQA: " + err.message);
     } finally {
@@ -114,15 +127,45 @@ export default function Vqa() {
     }
   };
 
+  const displayedMatches = useMemo(() => {
+    if (mode === "lost_user") return matches;
+    if (mode === "found_user") return lostMatches;
+    return [...matches, ...lostMatches].sort((a, b) => b.score - a.score);
+  }, [mode, matches, lostMatches]);
+
   return (
     <main className="page">
       <div className="page-head">
         <span className="eyebrow">VISION &amp; MULTIMODAL VQA</span>
         <h1>Pencarian Barang Cerdas dengan VQA &amp; Scan Gambar</h1>
         <p className="muted">
-          Unggah foto barang yang hilang. AI membaca ciri fisik, mengidentifikasi
-          teks, dan mencocokkannya dengan inventaris pos keamanan kampus.
+          Unggah foto barang. AI membaca ciri fisik, mengidentifikasi teks, dan
+          mencocokkannya dengan inventaris barang temuan maupun laporan kehilangan kampus.
         </p>
+
+        <div className="tabs" style={{ marginTop: "1rem" }}>
+          <button
+            type="button"
+            className={`tab ${mode === "all" ? "on" : ""}`}
+            onClick={() => setMode("all")}
+          >
+            Semua Kecocokan
+          </button>
+          <button
+            type="button"
+            className={`tab ${mode === "lost_user" ? "on" : ""}`}
+            onClick={() => setMode("lost_user")}
+          >
+            Saya Kehilangan Barang (Cari di Temuan)
+          </button>
+          <button
+            type="button"
+            className={`tab ${mode === "found_user" ? "on" : ""}`}
+            onClick={() => setMode("found_user")}
+          >
+            Saya Menemukan Barang (Cari di Kehilangan)
+          </button>
+        </div>
       </div>
 
       <div className="vqa-grid">
@@ -192,24 +235,49 @@ export default function Vqa() {
 
       {result && (
         <section className="vqa-matches">
-          <h2>Hasil Pencocokan Inventaris Kampus</h2>
+          <h2>Hasil Pencocokan Inventaris &amp; Laporan Kampus</h2>
           <p className="muted small">
-            {matches.length > 0
-              ? `Ditemukan ${matches.length} barang di database yang mirip secara visual dan teks.`
-              : "Belum ada barang temuan di database yang cocok dengan ciri foto ini."}
+            {displayedMatches.length > 0
+              ? `Ditemukan ${displayedMatches.length} data yang cocok secara visual dan teks.`
+              : "Belum ada data di database yang cocok dengan ciri foto ini."}
           </p>
           <div className="grid grid-2">
-            {matches.map((m) => (
-              <article key={m.id} className="fcard match">
-                <span className="rep-status green">Kemiripan {m.score}%</span>
+            {displayedMatches.map((m) => (
+              <article key={`${m.type}-${m.id}`} className="fcard match">
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+                  <span className="rep-status green">Kemiripan {m.score}%</span>
+                  <span className={`rep-status ${m.type === "lost" ? "yellow" : "green"}`}>
+                    {m.type === "lost" ? "Laporan Kehilangan (Mencari)" : "Barang Temuan"}
+                  </span>
+                </div>
                 <h3>{m.title}</h3>
-                <p className="muted small">{m.place}</p>
-                <button
-                  className="btn-primary btn-sm"
-                  onClick={() => navigate("/daftar-temuan")}
-                >
-                  Lihat &amp; Ajukan Klaim
-                </button>
+                {m.description && m.description !== "-" && (
+                  <p className="muted small">{m.description}</p>
+                )}
+                <p className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                  <MapPin size={13} /> {m.place}
+                  {m.date && m.date !== "-" ? (
+                    <>
+                      <span>•</span>
+                      <Calendar size={13} /> {m.date}
+                    </>
+                  ) : null}
+                </p>
+                {m.type === "lost" ? (
+                  <button
+                    className="btn-outline btn-sm"
+                    onClick={() => navigate("/riwayat")}
+                  >
+                    Lihat di Riwayat Laporan
+                  </button>
+                ) : (
+                  <button
+                    className="btn-primary btn-sm"
+                    onClick={() => navigate("/daftar-temuan")}
+                  >
+                    Lihat &amp; Ajukan Klaim
+                  </button>
+                )}
               </article>
             ))}
           </div>
