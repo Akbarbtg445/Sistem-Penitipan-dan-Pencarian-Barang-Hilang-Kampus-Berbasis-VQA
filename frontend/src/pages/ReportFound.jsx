@@ -26,6 +26,17 @@ const pos = [
   "Pos Satpam Lapangan Bintang",
 ];
 
+function getCurrentDateTimeLocal() {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+  const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
+    now.getMinutes()
+  ).padStart(2, "0")}`;
+  return { todayStr, nowTimeStr };
+}
+
 export default function ReportFound() {
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
@@ -36,7 +47,33 @@ export default function ReportFound() {
     penyerahan: "satpam", pos: pos[0],
   });
 
-  const set = (e) => setF({ ...f, [e.target.name]: e.target.value });
+  const { todayStr, nowTimeStr } = getCurrentDateTimeLocal();
+
+  const set = (e) => {
+    const { name, value } = e.target;
+    const current = getCurrentDateTimeLocal();
+
+    if (name === "tanggal") {
+      const clampedDate = value > current.todayStr ? current.todayStr : value;
+      const clampedTime =
+        clampedDate === current.todayStr && f.jam && f.jam > current.nowTimeStr
+          ? current.nowTimeStr
+          : f.jam;
+      setF({ ...f, tanggal: clampedDate, jam: clampedTime });
+      return;
+    }
+
+    if (name === "jam") {
+      const clampedTime =
+        f.tanggal === current.todayStr && value > current.nowTimeStr
+          ? current.nowTimeStr
+          : value;
+      setF({ ...f, jam: clampedTime });
+      return;
+    }
+
+    setF({ ...f, [name]: value });
+  };
 
   const lokasi =
     f.area === "Lainnya" || !f.area
@@ -47,6 +84,11 @@ export default function ReportFound() {
 
   const submit = (e) => {
     e.preventDefault();
+    const current = getCurrentDateTimeLocal();
+    if (f.tanggal > current.todayStr || (f.tanggal === current.todayStr && f.jam > current.nowTimeStr)) {
+      alert("Tanggal dan jam ditemukan tidak boleh melebihi waktu saat ini.");
+      return;
+    }
     setPreview(true);
   };
 
@@ -142,10 +184,26 @@ export default function ReportFound() {
 
             <div className="frow">
               <Field label="Tanggal Ditemukan" required>
-                <input className="finput-solo" type="date" name="tanggal" value={f.tanggal} onChange={set} required />
+                <input
+                  className="finput-solo"
+                  type="date"
+                  name="tanggal"
+                  value={f.tanggal}
+                  max={todayStr}
+                  onChange={set}
+                  required
+                />
               </Field>
               <Field label="Perkiraan Jam" required>
-                <input className="finput-solo" type="time" name="jam" value={f.jam} onChange={set} required />
+                <input
+                  className="finput-solo"
+                  type="time"
+                  name="jam"
+                  value={f.jam}
+                  max={f.tanggal === todayStr ? nowTimeStr : undefined}
+                  onChange={set}
+                  required
+                />
               </Field>
             </div>
 

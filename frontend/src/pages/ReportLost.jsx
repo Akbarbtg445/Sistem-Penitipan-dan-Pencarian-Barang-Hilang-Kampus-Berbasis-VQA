@@ -4,6 +4,24 @@ import { Search } from "lucide-react";
 import { Field, FormCard, PhotoPicker, ReporterCard, Steps, categories } from "../components/FormBits";
 import PreviewModal from "../components/PreviewModal";
 
+function getCurrentDateTimeLocal() {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return { todayStr, nowMinutes };
+}
+
+function hasFutureClockInRange(rangeText, nowMinutes) {
+  const matches = String(rangeText || "").match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/g);
+  if (!matches) return false;
+  return matches.some((token) => {
+    const [h, m] = token.split(/[:.]/).map(Number);
+    return h * 60 + m > nowMinutes;
+  });
+}
+
 export default function ReportLost() {
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
@@ -13,10 +31,30 @@ export default function ReportLost() {
     lokasi: "", tglHilang: "", rentang: "", catatan: "",
   });
 
-  const set = (e) => setF({ ...f, [e.target.name]: e.target.value });
+  const { todayStr } = getCurrentDateTimeLocal();
+
+  const set = (e) => {
+    const { name, value } = e.target;
+    if (name === "tglHilang") {
+      const current = getCurrentDateTimeLocal();
+      const clampedDate = value > current.todayStr ? current.todayStr : value;
+      setF({ ...f, tglHilang: clampedDate });
+      return;
+    }
+    setF({ ...f, [name]: value });
+  };
 
   const submit = (e) => {
     e.preventDefault();
+    const current = getCurrentDateTimeLocal();
+    if (f.tglHilang > current.todayStr) {
+      alert("Tanggal terakhir terlihat tidak boleh melebihi hari ini.");
+      return;
+    }
+    if (f.tglHilang === current.todayStr && hasFutureClockInRange(f.rentang, current.nowMinutes)) {
+      alert("Perkiraan rentang waktu hari ini tidak boleh melebihi jam saat ini.");
+      return;
+    }
     setPreview(true);
   };
 
@@ -92,7 +130,15 @@ export default function ReportLost() {
             </Field>
             <div className="frow">
               <Field label="Tanggal Terakhir Terlihat" required>
-                <input className="finput-solo" type="date" name="tglHilang" value={f.tglHilang} onChange={set} required />
+                <input
+                  className="finput-solo"
+                  type="date"
+                  name="tglHilang"
+                  value={f.tglHilang}
+                  max={todayStr}
+                  onChange={set}
+                  required
+                />
               </Field>
               <Field label="Perkiraan Rentang Waktu" required>
                 <input className="finput-solo" name="rentang" value={f.rentang} onChange={set} placeholder="Contoh: 13.00 - 15.00 WIB" required />

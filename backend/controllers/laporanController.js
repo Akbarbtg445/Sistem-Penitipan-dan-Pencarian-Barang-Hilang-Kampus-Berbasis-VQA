@@ -57,6 +57,16 @@ exports.buatLaporan = async (req, res) => {
     const jamStr = time && /^\d{2}:\d{2}/.test(time) ? `${time}:00`.slice(0, 8) : '00:00:00';
     const waktuTimestamp = `${tanggalStr}T${jamStr}`;
 
+    // Tolak jika tanggal/jam laporan berada di masa depan (WIB / UTC+7)
+    const waktuLaporanMs = new Date(`${waktuTimestamp}+07:00`).getTime();
+    const batasMaksimalMs = Date.now() + 5 * 60 * 1000;
+    if (!Number.isNaN(waktuLaporanMs) && waktuLaporanMs > batasMaksimalMs) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Tanggal dan waktu kejadian tidak boleh melebihi waktu saat ini.',
+      });
+    }
+
     // Upload foto ke bucket 'foto_barang' jika user melampirkan foto
     const folder = isLost ? 'kehilangan' : 'temuan';
     const uploadedUrl = await uploadFotoKeStorage(imageBase64, folder);
@@ -166,6 +176,32 @@ exports.ambilLaporan = async (req, res) => {
       data: [...formattedTemuan, ...formattedHilang],
     });
   } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
+exports.ubahStatusLaporan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, status } = req.body;
+
+    const isLost = type === 'lost';
+    const namaTabel = isLost ? 'laporan_kehilangan' : 'barang_temuan';
+    const kolomId = isLost ? 'id_laporan' : 'id_temuan';
+    const kolomStatus = isLost ? 'status_laporan' : 'status_barang';
+    const nilaiStatus = status || (isLost ? 'DITEMUKAN' : 'DIAMBIL');
+
+    const { data, error } = await supabase
+      .from(namaTabel)
+      .update({ [kolomStatus]: nilaiStatus })
+      .eq(kolomId, id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(200).json({ status: 'success', data });
+  } catch (error) {
+    console.error('Error update status:', error.message);
     res.status(500).json({ status: 'error', message: error.message });
   }
 };
