@@ -6,7 +6,7 @@ export default function Footer() {
           <strong>UMY Lost &amp; Found Portal</strong> • Biro Administrasi Umum
           &amp; Keamanan Terpadu UMY
         </span>
-        <span>© 2024 Universitas Muhammadiyah Yogyakarta. Unggul &amp; Islami</span>
+        <span>© 2026 Universitas Muhammadiyah Yogyakarta. Unggul &amp; Islami</span>
       </div>
     </footer>
   );
