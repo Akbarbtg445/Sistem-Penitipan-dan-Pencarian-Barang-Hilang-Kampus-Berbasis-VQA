@@ -2,30 +2,6 @@ import { createContext, useContext, useState } from "react";
 
 // TODO: ganti dengan data dari backend (GET /api/notifikasi)
 const initial = [
-  {
-    id: 1,
-    title: "Kemungkinan barang Anda ditemukan",
-    body: "Tumbler Stainless Hijau terdaftar di Perpus Pusat.",
-    time: "Baru saja",
-    to: "/daftar-temuan",
-    read: false,
-  },
-  {
-    id: 2,
-    title: "Laporan kehilangan diterima",
-    body: "Laporan Laptop Asus Zenbook 14 OLED sudah masuk radar petugas.",
-    time: "2 jam lalu",
-    to: "/riwayat",
-    read: false,
-  },
-  {
-    id: 3,
-    title: "Klaim disetujui",
-    body: "Ambil barangmu di Pos Satpam AR Fachruddin A dengan membawa KTM asli.",
-    time: "Kemarin",
-    to: "/riwayat",
-    read: true,
-  },
 ];
 
 const NotifContext = createContext(null);
