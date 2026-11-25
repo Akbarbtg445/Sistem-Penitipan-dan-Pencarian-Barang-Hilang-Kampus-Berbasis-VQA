@@ -9,6 +9,9 @@ import {
   ShieldCheck,
   MapPin,
   Calendar,
+  Tag,
+  Palette,
+  X,
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
@@ -52,6 +55,7 @@ export default function Vqa() {
   const [result, setResult] = useState(null);
   const [matches, setMatches] = useState([]);
   const [lostMatches, setLostMatches] = useState([]);
+  const [selectedMatch, setSelectedMatch] = useState(null);
   const [messages, setMessages] = useState([
     { from: "ai", text: "Unggah foto barang, lalu tanyakan apa saja tentang barang itu." },
   ]);
@@ -64,6 +68,7 @@ export default function Vqa() {
     setResult(null);
     setMatches([]);
     setLostMatches([]);
+    setSelectedMatch(null);
   };
 
   const analyze = async () => {
@@ -132,14 +137,6 @@ export default function Vqa() {
     if (mode === "found_user") return lostMatches;
     return [...matches, ...lostMatches].sort((a, b) => b.score - a.score);
   }, [mode, matches, lostMatches]);
-
-  const handleMatchClick = (m) => {
-    if (m.type === "lost") {
-      navigate(`/riwayat?id=${m.id}`, { state: { selectedItem: m } });
-    } else {
-      navigate(`/daftar-temuan?id=${m.id}`, { state: { selectedItem: m } });
-    }
-  };
 
   return (
     <main className="page">
@@ -254,14 +251,14 @@ export default function Vqa() {
               <article
                 key={`${m.type}-${m.id}`}
                 className="fcard match"
-                onClick={() => handleMatchClick(m)}
+                onClick={() => setSelectedMatch(m)}
                 style={{ cursor: "pointer", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    handleMatchClick(m);
+                    setSelectedMatch(m);
                   }
                 }}
               >
@@ -284,33 +281,188 @@ export default function Vqa() {
                     </>
                   ) : null}
                 </p>
-                {m.type === "lost" ? (
-                  <button
-                    type="button"
-                    className="btn-outline btn-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMatchClick(m);
-                    }}
-                  >
-                    Lihat di Riwayat Laporan
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-primary btn-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMatchClick(m);
-                    }}
-                  >
-                    Lihat &amp; Ajukan Klaim
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={m.type === "lost" ? "btn-outline btn-sm" : "btn-primary btn-sm"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedMatch(m);
+                  }}
+                >
+                  Lihat Detail Barang
+                </button>
               </article>
             ))}
           </div>
         </section>
+      )}
+
+      {/* Modal Detail Langsung di Halaman VQA (Tanpa Pindah Halaman) */}
+      {selectedMatch && (
+        <div
+          onClick={() => setSelectedMatch(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "560px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: "1.5rem",
+              boxShadow: "0 20px 45px rgba(0,0,0,0.18)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+              <div>
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+                  <span className={`rep-status ${selectedMatch.type === "lost" ? "yellow" : "green"}`}>
+                    {selectedMatch.type === "lost" ? "MENCARI" : "BARANG TEMUAN"}
+                  </span>
+                  <span className="rep-status green">Kemiripan {selectedMatch.score}%</span>
+                </div>
+                <h2 style={{ marginTop: "0.5rem", marginBottom: "0.2rem", fontSize: "1.3rem" }}>
+                  {selectedMatch.title}
+                </h2>
+                <p className="muted small" style={{ margin: 0 }}>
+                  ID Laporan: {selectedMatch.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMatch(null)}
+                aria-label="Tutup detail"
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  borderRadius: "999px",
+                  width: "34px",
+                  height: "34px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {selectedMatch.image && (
+              <div style={{ marginTop: "1rem", borderRadius: "12px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                <img
+                  src={selectedMatch.image}
+                  alt={selectedMatch.title}
+                  style={{ width: "100%", maxHeight: "260px", objectFit: "cover", display: "block" }}
+                />
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "1rem",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: "0.75rem",
+                padding: "0.9rem",
+                backgroundColor: "#f8fafc",
+                borderRadius: "12px",
+                fontSize: "0.9rem",
+              }}
+            >
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Tag size={13} /> Kategori
+                </div>
+                <strong>{String(selectedMatch.category || "-").toUpperCase()}</strong>
+              </div>
+
+              {selectedMatch.color && (
+                <div>
+                  <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <Palette size={13} /> Warna Barang
+                  </div>
+                  <strong>{selectedMatch.color}</strong>
+                </div>
+              )}
+
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <MapPin size={13} /> {selectedMatch.type === "lost" ? "Lokasi Terakhir Hilang" : "Lokasi / Pos Simpan"}
+                </div>
+                <strong>{selectedMatch.place || "-"}</strong>
+              </div>
+
+              <div>
+                <div className="muted small" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Calendar size={13} /> Tanggal {selectedMatch.type === "lost" ? "Hilang" : "Ditemukan"}
+                </div>
+                <strong>{selectedMatch.date || "-"}</strong>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1rem" }}>
+              <div className="muted small" style={{ marginBottom: "0.3rem" }}>
+                Deskripsi &amp; Ciri Khusus Barang
+              </div>
+              <div
+                style={{
+                  padding: "0.85rem",
+                  borderRadius: "10px",
+                  border: "1px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
+                  lineHeight: 1.55,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {selectedMatch.description || "Tidak ada deskripsi tambahan."}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: "1.25rem",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.65rem",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setSelectedMatch(null)}
+              >
+                Tutup
+              </button>
+
+              {selectedMatch.type === "found" && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    setSelectedMatch(null);
+                    navigate("/daftar-temuan");
+                  }}
+                >
+                  Lanjut Ajukan Klaim
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="privacy">
