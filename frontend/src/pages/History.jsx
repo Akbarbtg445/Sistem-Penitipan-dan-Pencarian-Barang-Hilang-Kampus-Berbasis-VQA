@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileText,
   Search,
@@ -22,10 +22,80 @@ const tabs = [
 ];
 
 export default function History() {
-  const { reports } = useReports();
+  const { reports, fetchReports } = useReports();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState("all");
   const [selectedReport, setSelectedReport] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const targetId = searchParams.get("id");
+
+  useEffect(() => {
+    if (!targetId) return;
+
+    // 1. Cari data lengkap dari ReportsContext
+    if (reports.length > 0) {
+      const found = reports.find((r) => String(r.id) === String(targetId));
+      if (found) {
+        setSelectedReport(found);
+        return;
+      }
+    }
+
+    // 2. Fallback langsung dari state Vqa.jsx sementara reports masih loading
+    const stateItem = location.state?.selectedItem;
+    if (stateItem && String(stateItem.id) === String(targetId)) {
+      setSelectedReport({
+        id: stateItem.id,
+        type: stateItem.type || "lost",
+        title: stateItem.title || "Barang Hilang",
+        category: (stateItem.category || "LAINNYA").toUpperCase(),
+        color: stateItem.color || "-",
+        place: stateItem.place || "-",
+        date: stateItem.date || "-",
+        time: "-",
+        image: stateItem.image || "",
+        description: stateItem.description || "-",
+        status: stateItem.type === "lost" ? "MENCARI" : "TERVERIFIKASI",
+        tone: stateItem.type === "lost" ? "yellow" : "green",
+      });
+    }
+  }, [targetId, reports, location.state]);
+
+  const openModal = (report) => {
+    setSelectedReport(report);
+    setSearchParams({ id: report.id });
+  };
+
+  const closeModal = () => {
+    setSelectedReport(null);
+    if (searchParams.has("id")) {
+      setSearchParams({});
+    }
+  };
+
+  const handleMarkCompleted = async (report) => {
+    if (updatingStatus) return;
+    setUpdatingStatus(true);
+    try {
+      const nextStatus = report.type === "lost" ? "DITEMUKAN" : "DIAMBIL";
+      const res = await fetch(`/api/laporan/${report.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: report.type, status: nextStatus }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Gagal memperbarui status");
+      await fetchReports();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Terjadi kesalahan saat memperbarui status.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   const list = reports.filter((r) => tab === "all" || r.type === tab);
   const count = (id) => reports.filter((r) => id === "all" || r.type === id).length;
@@ -75,11 +145,11 @@ export default function History() {
             <article
               key={r.id}
               className="hist-item"
-              onClick={() => setSelectedReport(r)}
+              onClick={() => openModal(r)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setSelectedReport(r);
+                if (e.key === "Enter" || e.key === " ") openModal(r);
               }}
               style={{ cursor: "pointer", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
             >
@@ -110,7 +180,7 @@ export default function History() {
 
       {selectedReport && (
         <div
-          onClick={() => setSelectedReport(null)}
+          onClick={closeModal}
           style={{
             position: "fixed",
             inset: 0,
@@ -147,7 +217,7 @@ export default function History() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedReport(null)}
+                onClick={closeModal}
                 aria-label="Tutup detail"
                 style={{
                   border: "none",
@@ -262,15 +332,34 @@ export default function History() {
               <button
                 type="button"
                 className="btn-outline"
-                onClick={() => setSelectedReport(null)}
+                onClick={closeModal}
               >
                 Tutup
               </button>
+
+              {String(selectedReport.status || "").toUpperCase() !== "DIAMBIL" &&
+                String(selectedReport.status || "").toUpperCase() !== "DITEMUKAN" && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={updatingStatus}
+                    onClick={() => handleMarkCompleted(selectedReport)}
+                    style={{ backgroundColor: "#15803d" }}
+                  >
+                    <CheckCircle2 size={15} />{" "}
+                    {updatingStatus
+                      ? "Menyimpan..."
+                      : selectedReport.type === "lost"
+                      ? "Barang Sudah Ditemukan"
+                      : "Tandai Sudah Dikembalikan"}
+                  </button>
+                )}
+
               <button
                 type="button"
                 className="btn-primary"
                 onClick={() => {
-                  setSelectedReport(null);
+                  closeModal();
                   navigate("/vqa");
                 }}
               >
